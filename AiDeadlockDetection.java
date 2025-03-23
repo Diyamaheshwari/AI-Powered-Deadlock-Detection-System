@@ -4,7 +4,7 @@ class DeadlockDetector {
     private final Map<Thread, List<Thread>> waitForGraph = new HashMap<>();
     private final Map<Thread, Integer> deadlockRisk = new HashMap<>();
     private final Timer monitoringTimer = new Timer();
-
+    private final MachineLearningModel mlModel = new MachineLearningModel();
     public DeadlockDetector() {
         monitoringTimer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -16,12 +16,11 @@ class DeadlockDetector {
     public synchronized void requestResource(Thread requester, Thread holder) {
         waitForGraph.computeIfAbsent(requester, k -> new ArrayList<>()).add(holder);
         updateDeadlockRisk(requester);
-        if (detectDeadlock()) {
+        if (detectDeadlock() || mlModel.predictDeadlock(deadlockRisk)) {
             System.out.println("[AI ALERT] Potential deadlock detected! Resolving...");
             resolveDeadlock();
         }
     }
-
     private void updateDeadlockRisk(Thread thread) {
         int riskScore = waitForGraph.getOrDefault(thread, new ArrayList<>()).size();
         deadlockRisk.put(thread, riskScore);
@@ -39,8 +38,9 @@ class DeadlockDetector {
     private boolean dfs(Thread node, Set<Thread> visited, Set<Thread> recStack) {
         if (recStack.contains(node)) return true;
         if (visited.contains(node)) return false;
-       visited.add(node);
+        visited.add(node);
         recStack.add(node);
+
         for (Thread neighbor : waitForGraph.getOrDefault(node, new ArrayList<>())) {
             if (dfs(neighbor, visited, recStack)) return true;
         }
@@ -59,6 +59,12 @@ class DeadlockDetector {
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
             System.out.println("Thread: " + thread.getName() + " - State: " + thread.getState());
         }
+    }
+}
+class MachineLearningModel {
+    public boolean predictDeadlock(Map<Thread, Integer> riskScores) {
+        int avgRisk = riskScores.values().stream().mapToInt(Integer::intValue).sum() / (riskScores.size() + 1);
+        return avgRisk > 2; // Threshold-based prediction
     }
 }
 class Resource {
