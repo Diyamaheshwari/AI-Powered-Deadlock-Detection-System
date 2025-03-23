@@ -1,16 +1,23 @@
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
-// Version 1: Basic Deadlock Detection
+// Version 2: AI-Powered Risk Assessment for Deadlock Detection
 class DeadlockDetector {
     private final Map<Thread, List<Thread>> waitForGraph = new HashMap<>();
+    private final Map<Thread, Integer> deadlockRisk = new HashMap<>();
 
     public synchronized void requestResource(Thread requester, Thread holder) {
         waitForGraph.computeIfAbsent(requester, k -> new ArrayList<>()).add(holder);
+        updateDeadlockRisk(requester);
         if (detectDeadlock()) {
-            System.out.println("[ALERT] Deadlock detected! Resolving...");
+            System.out.println("[AI ALERT] Potential deadlock detected! Resolving...");
             resolveDeadlock();
         }
+    }
+
+    private void updateDeadlockRisk(Thread thread) {
+        int riskScore = waitForGraph.getOrDefault(thread, new ArrayList<>()).size();
+        deadlockRisk.put(thread, riskScore);
     }
 
     private boolean detectDeadlock() {
@@ -25,17 +32,14 @@ class DeadlockDetector {
     }
 
     private boolean dfs(Thread node, Set<Thread> visited, Set<Thread> recStack) {
-        if (recStack.contains(node))
-            return true;
-        if (visited.contains(node))
-            return false;
+        if (recStack.contains(node)) return true;
+        if (visited.contains(node)) return false;
 
         visited.add(node);
         recStack.add(node);
 
         for (Thread neighbor : waitForGraph.getOrDefault(node, new ArrayList<>())) {
-            if (dfs(neighbor, visited, recStack))
-                return true;
+            if (dfs(neighbor, visited, recStack)) return true;
         }
 
         recStack.remove(node);
@@ -43,8 +47,11 @@ class DeadlockDetector {
     }
 
     private void resolveDeadlock() {
-        waitForGraph.clear();
-        System.out.println("[INFO] Deadlock resolved by clearing graph.");
+        Thread highestRiskThread = Collections.max(deadlockRisk.entrySet(), Map.Entry.comparingByValue()).getKey();
+        System.out.println("[AI] Terminating " + highestRiskThread.getName() + " to resolve deadlock.");
+        highestRiskThread.interrupt();
+        waitForGraph.remove(highestRiskThread);
+        deadlockRisk.remove(highestRiskThread);
     }
 }
 
@@ -69,10 +76,7 @@ public class AiDeadlockDetection {
 
         Thread thread1 = new Thread(() -> {
             if (resourceA.acquire(Thread.currentThread(), detector, Thread.currentThread())) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {
-                }
+                try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                 if (resourceB.acquire(Thread.currentThread(), detector, Thread.currentThread())) {
                     resourceB.release();
                 }
@@ -82,10 +86,7 @@ public class AiDeadlockDetection {
 
         Thread thread2 = new Thread(() -> {
             if (resourceB.acquire(Thread.currentThread(), detector, Thread.currentThread())) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {
-                }
+                try { Thread.sleep(100); } catch (InterruptedException ignored) {}
                 if (resourceA.acquire(Thread.currentThread(), detector, Thread.currentThread())) {
                     resourceA.release();
                 }
