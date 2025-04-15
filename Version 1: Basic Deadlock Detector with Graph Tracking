@@ -1,0 +1,33 @@
+import java.util.*;
+
+class DeadlockDetector {
+    private final Map<Thread, List<Thread>> waitForGraph = new HashMap<>();
+
+    public synchronized void requestResource(Thread requester, Thread holder) {
+        waitForGraph.computeIfAbsent(requester, k -> new ArrayList<>()).add(holder);
+        if (detectDeadlock()) {
+            System.out.println("Deadlock detected!");
+        }
+    }
+
+    private boolean detectDeadlock() {
+        Set<Thread> visited = new HashSet<>();
+        Set<Thread> recStack = new HashSet<>();
+        for (Thread node : waitForGraph.keySet()) {
+            if (dfs(node, visited, recStack)) return true;
+        }
+        return false;
+    }
+
+    private boolean dfs(Thread node, Set<Thread> visited, Set<Thread> recStack) {
+        if (recStack.contains(node)) return true;
+        if (visited.contains(node)) return false;
+        visited.add(node);
+        recStack.add(node);
+        for (Thread neighbor : waitForGraph.getOrDefault(node, new ArrayList<>())) {
+            if (dfs(neighbor, visited, recStack)) return true;
+        }
+        recStack.remove(node);
+        return false;
+    }
+}
