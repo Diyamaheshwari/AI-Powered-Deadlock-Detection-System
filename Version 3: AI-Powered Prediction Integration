@@ -1,0 +1,57 @@
+import java.util.*;
+
+class DeadlockDetector {
+    private final Map<Thread, List<Thread>> waitForGraph = new HashMap<>();
+    private final Map<Thread, Integer> deadlockRisk = new HashMap<>();
+    private final MachineLearningModel mlModel = new MachineLearningModel();
+
+    public synchronized void requestResource(Thread requester, Thread holder) {
+        waitForGraph.computeIfAbsent(requester, k -> new ArrayList<>()).add(holder);
+        updateDeadlockRisk(requester);
+        if (detectDeadlock() || mlModel.predictDeadlock(deadlockRisk)) {
+            System.out.println("AI ALERT: Potential deadlock detected!");
+            resolveDeadlock();
+        }
+    }
+
+    private void updateDeadlockRisk(Thread thread) {
+        int riskScore = waitForGraph.getOrDefault(thread, new ArrayList<>()).size();
+        deadlockRisk.put(thread, riskScore);
+    }
+
+    private boolean detectDeadlock() {
+        Set<Thread> visited = new HashSet<>();
+        Set<Thread> recStack = new HashSet<>();
+        for (Thread node : waitForGraph.keySet()) {
+            if (dfs(node, visited, recStack)) return true;
+        }
+        return false;
+    }
+
+    private boolean dfs(Thread node, Set<Thread> visited, Set<Thread> recStack) {
+        if (recStack.contains(node)) return true;
+        if (visited.contains(node)) return false;
+        visited.add(node);
+        recStack.add(node);
+        for (Thread neighbor : waitForGraph.getOrDefault(node, new ArrayList<>())) {
+            if (dfs(neighbor, visited, recStack)) return true;
+        }
+        recStack.remove(node);
+        return false;
+    }
+
+    private void resolveDeadlock() {
+        Thread highestRiskThread = Collections.max(deadlockRisk.entrySet(), Map.Entry.comparingByValue()).getKey();
+        System.out.println("AI terminating: " + highestRiskThread.getName());
+        highestRiskThread.interrupt();
+        waitForGraph.remove(highestRiskThread);
+        deadlockRisk.remove(highestRiskThread);
+    }
+}
+
+class MachineLearningModel {
+    public boolean predictDeadlock(Map<Thread, Integer> riskScores) {
+        int avg = riskScores.values().stream().mapToInt(i -> i).sum() / (riskScores.size() + 1);
+        return avg > 2;
+    }
+}
